@@ -1,0 +1,2530 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Miku Beats ♪ Deluxe Edition</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- JSZip для распаковки карт .osz и архивов osu! -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg: #03141a;
+  --panel: #072731;
+  --miku: #39c5bb;
+  --miku-glow: rgba(57, 197, 187, 0.6);
+  --miku-light: #86e3ce;
+  --pink: #ff2a8d;
+  --pink-glow: rgba(255, 42, 141, 0.6);
+  --yellow: #ffd166;
+  --ink: #eafcfa;
+  --dim: #7da0ad;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-frame {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  max-width: calc(100vh * 4 / 3);
+  max-height: calc(100vw * 3 / 4);
+  background: radial-gradient(circle at 50% 50%, #072a34 0%, #020f14 100%);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 0 2px rgba(57, 197, 187, 0.4);
+  overflow: hidden;
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  #game-frame {
+    border-radius: 24px;
+    height: 94vh;
+    width: min(96vw, calc(94vh * 4 / 3));
+  }
+}
+
+canvas#c {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+body.mode-pc canvas#c {
+  cursor: none;
+}
+
+body.mode-mobile canvas#c {
+  cursor: default;
+}
+
+.overlay-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(10px, 3vw, 24px);
+  background: radial-gradient(ellipse at center, rgba(6, 32, 41, 0.96) 0%, rgba(2, 11, 15, 0.98) 100%);
+  backdrop-filter: blur(14px);
+  z-index: 25;
+  overflow-y: auto;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.overlay-screen.hidden-screen {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.97);
+}
+
+.cyber-btn {
+  position: relative;
+  background: linear-gradient(135deg, var(--miku) 0%, #1e9b92 100%);
+  color: #02201d;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 18px var(--miku-glow);
+  transition: all 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  outline: none;
+  font-size: 13px;
+}
+
+.cyber-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 24px rgba(57, 197, 187, 0.8);
+}
+
+.cyber-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+.cyber-btn.pink {
+  background: linear-gradient(135deg, var(--pink) 0%, #b81461 100%);
+  color: #fff;
+  box-shadow: 0 4px 18px var(--pink-glow);
+}
+
+.cyber-btn.pink:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(255, 42, 141, 0.85);
+}
+
+.cyber-btn.ghost {
+  background: rgba(57, 197, 187, 0.1);
+  color: var(--miku-light);
+  border: 1.5px solid rgba(57, 197, 187, 0.45);
+  box-shadow: none;
+}
+
+.cyber-btn.ghost:hover:not(:disabled) {
+  background: rgba(57, 197, 187, 0.25);
+  border-color: var(--miku);
+}
+
+.cyber-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.mod-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1.5px solid rgba(57, 197, 187, 0.35);
+  background: rgba(7, 39, 49, 0.6);
+  color: #86e3ce;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mod-chip.active {
+  background: linear-gradient(135deg, #ff2a8d, #39c5bb);
+  color: #fff;
+  border-color: #fff;
+  box-shadow: 0 0 12px rgba(255, 42, 141, 0.6);
+}
+
+.custom-scroll::-webkit-scrollbar { width: 5px; }
+.custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: rgba(57,197,187,0.4); border-radius: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--miku); }
+</style>
+</head>
+<body class="mode-pc">
+
+<div id="game-frame">
+  <canvas id="c" width="800" height="600" aria-label="Игровое поле Miku Beats"></canvas>
+
+  <div id="toast-msg" class="absolute top-4 left-1/2 -translate-x-1/2 bg-cyan-950/95 border border-cyan-400 text-cyan-200 text-xs px-4 py-2 rounded-full shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 z-50 font-bold">
+    Сообщение
+  </div>
+
+  <!-- PLATFORM SELECTOR MODAL (First run or device switch) -->
+  <div class="overlay-screen" id="platform-modal" style="z-index: 60;">
+    <div class="bg-cyan-950/95 border-2 border-cyan-400/60 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center flex flex-col items-center gap-4 shadow-[0_0_50px_rgba(57,197,187,0.35)]">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-400 to-pink-500 flex items-center justify-center text-3xl shadow-lg">
+        🎮
+      </div>
+      <div>
+        <h2 class="text-2xl sm:text-3xl font-black text-cyan-300 tracking-wide">
+          НА ЧЁМ ВЫ ИГРАЕТЕ?
+        </h2>
+        <p class="text-xs text-cyan-100/70 mt-1">
+          Выберите устройство для адаптации управления, хитбоксов и задержек:
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-2">
+        <button id="pick-pc" class="cyber-btn flex-col py-4 px-3 rounded-2xl bg-cyan-900/40 border border-cyan-400/40 hover:border-cyan-300 hover:bg-cyan-800/50 transition">
+          <span class="text-3xl mb-1">💻</span>
+          <span class="text-base font-black text-cyan-200">Компьютер / ПК</span>
+          <span class="text-[11px] text-cyan-300/70 font-normal mt-1">
+            Курсор мыши + клавиши <b>[Z] [X]</b>
+          </span>
+        </button>
+
+        <button id="pick-mobile" class="cyber-btn pink flex-col py-4 px-3 rounded-2xl bg-pink-900/40 border border-pink-400/40 hover:border-pink-300 hover:bg-pink-800/50 transition">
+          <span class="text-3xl mb-1">📱</span>
+          <span class="text-base font-black text-white">Телефон / Тач</span>
+          <span class="text-[11px] text-pink-200/80 font-normal mt-1">
+            Прямые тапы пальцем по нотам <b>(Direct Tap)</b>
+          </span>
+        </button>
+      </div>
+
+      <div class="text-[10px] text-cyan-300/50 mt-1">
+        * Платформу можно сменить в любой момент в верхнем меню или в настройках ⚙️.
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay-screen" id="menu-screen">
+    <div class="text-center max-w-xl w-full flex flex-col items-center gap-2.5 py-1">
+      
+      <!-- Top Character Banner Art with Uploadable High-Res Miku Avatar -->
+      <div class="relative w-full rounded-2xl overflow-hidden border border-cyan-500/30 bg-gradient-to-r from-cyan-950 via-[#062933] to-pink-950/40 p-2.5 flex items-center justify-between shadow-[0_0_30px_rgba(57,197,187,0.25)]">
+        <div class="flex flex-col text-left pl-2.5 z-10 max-w-[65%]">
+          <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-950/90 border border-cyan-400/60 text-cyan-300 text-[10px] font-black tracking-widest uppercase w-max">
+            <span>初音ミク</span>
+            <span class="w-1.5 h-1.5 rounded-full bg-pink-500 animate-ping"></span>
+            <span id="platform-badge" class="text-pink-400 font-bold">💻 РЕЖИМ ПК</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-black text-cyan-300 drop-shadow-[0_2px_8px_rgba(255,42,141,0.6)] mt-0.5 leading-tight">
+            Miku Beats ♪
+          </h1>
+          <p class="text-[11px] text-cyan-100/70 truncate">
+            6 авторских треков · Поддержка карт osu! (.osz / .osu)
+          </p>
+        </div>
+
+        <div class="relative group pr-1 flex items-center justify-center">
+          <div class="relative w-20 h-20 sm:w-22 sm:h-22 rounded-2xl overflow-hidden border-2 border-cyan-400 shadow-[0_0_16px_rgba(57,197,187,0.6)] bg-cyan-950 flex items-center justify-center cursor-pointer" id="avatar-container" title="Кликните, чтобы сменить фото Мику">
+            <img id="miku-avatar-img" src="https://raw.githubusercontent.com/vauxe/hatsune-miku-theme/main/icon.png" alt="Hatsune Miku" class="w-full h-full object-cover object-top transition duration-300 group-hover:scale-105" onerror="this.onerror=null; this.src='https://placehold.co/150x150/072731/39c5bb?text=01+Miku';">
+            
+            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center text-[10px] text-cyan-200 font-bold p-1 text-center">
+              <span>📷</span>
+              <span>Сменить фото</span>
+            </div>
+            <input type="file" id="avatar-input" accept="image/*" class="hidden">
+          </div>
+          <div class="absolute -bottom-1 -right-1 bg-pink-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded-full border border-white shadow">
+            01
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Platform Switch Bar -->
+      <div class="w-full flex items-center justify-between bg-cyan-950/40 border border-cyan-500/20 px-3 py-1.5 rounded-xl text-xs">
+        <span class="text-cyan-300 font-semibold text-[11px]">Устройство:</span>
+        <div class="flex gap-1.5">
+          <button id="toggle-mode-pc" class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition border border-cyan-400 bg-cyan-500 text-gray-900 shadow">
+            💻 ПК (Мышь + Z/X)
+          </button>
+          <button id="toggle-mode-mobile" class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition border border-cyan-400/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900">
+            📱 Телефон (Тап)
+          </button>
+        </div>
+      </div>
+
+      <div class="w-full bg-cyan-950/40 border border-cyan-500/20 rounded-2xl p-2.5 flex flex-col gap-1.5">
+        <div class="flex items-center justify-between px-1 text-xs font-semibold text-cyan-200">
+          <span>Библиотека треков (<span id="song-count">0</span>)</span>
+          <span class="text-pink-400 font-mono text-[11px]">Кликните для выбора</span>
+        </div>
+
+        <ul id="song-list" class="max-h-32 sm:max-h-36 overflow-y-auto custom-scroll flex flex-col gap-1 pr-1"></ul>
+      </div>
+
+      <!-- Game Modifiers (Mods) Row -->
+      <div class="flex flex-wrap items-center justify-center gap-1.5 w-full bg-cyan-950/30 border border-cyan-500/20 rounded-xl p-1.5">
+        <span class="text-[11px] text-cyan-300 font-bold mr-1">Моды:</span>
+        <button id="mod-auto" class="mod-chip" title="Бот проходит песню со 100% точностью">🤖 Auto</button>
+        <button id="mod-relax" class="mod-chip" title="Авто-прицел, нажимайте только клавиши Z/X">🧘 Relax</button>
+        <button id="mod-sd" class="mod-chip" title="1 ошибка (мимо) = моментальный проигрыш">⚡ Sudden Death</button>
+        <button id="mod-dt" class="mod-chip" title="Ускорение музыки и нот в 1.4 раза">⏩ Double Time</button>
+        <button id="mod-hr" class="mod-chip" title="Меньше круги (-25%), строже тайминги">🎸 Hard Rock</button>
+        <button id="mod-mr" class="mod-chip" title="Зеркальное отражение нот">🪞 Mirror</button>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-2 w-full pt-0.5">
+        <label class="cyber-btn ghost text-xs py-1.5 px-3 cursor-pointer" title="Загрузить аудио или карты .osz / .osu">
+          <input type="file" id="file-input" accept="audio/*,.osu,.osz,.zip" multiple class="hidden">
+          <span>📁 Загрузить (.osz / .osu / MP3)</span>
+        </label>
+
+        <div id="diff-container" class="inline-flex items-center gap-1.5 bg-cyan-950/70 border border-cyan-500/40 rounded-full px-3 py-1 text-xs">
+          <span class="text-cyan-300 font-bold">Сложность:</span>
+          <select id="diff-select" class="bg-transparent text-white font-semibold outline-none cursor-pointer">
+            <option value="0.44" class="bg-gray-900 text-white">★ Легко</option>
+            <option value="0.28" selected class="bg-gray-900 text-white">★★ Обычная</option>
+            <option value="0.18" class="bg-gray-900 text-white">★★★ Сложная</option>
+            <option value="0.09" class="bg-gray-900 text-white">★★★★ Безумие (Miku!)</option>
+          </select>
+        </div>
+
+        <button id="btn-leaderboard" class="cyber-btn ghost text-xs py-1.5 px-3" title="Таблица рекордов">
+          🏆 Рекорды
+        </button>
+
+        <button id="btn-settings-toggle" class="cyber-btn ghost text-xs py-1.5 px-2.5" title="Настройки">
+          ⚙️
+        </button>
+      </div>
+
+      <!-- Action Buttons: Random & Play -->
+      <div class="flex flex-wrap items-center justify-center gap-3 w-full mt-1">
+        <button id="btn-random" class="cyber-btn pink text-xs sm:text-sm py-2 px-5">
+          🎲 Случайная песня
+        </button>
+        <button id="btn-start" class="cyber-btn text-xs sm:text-sm py-2 px-7 font-black tracking-wide">
+          ▶ Начать игру
+        </button>
+      </div>
+
+      <div class="text-[10px] text-cyan-200/60" id="controls-hint-text">
+        ПК: <b>Клик мыши</b> или клавиши <b>[Z] [X]</b> · Пауза: <b>[Esc]</b>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Screen -->
+  <div class="overlay-screen hidden-screen" id="leaderboard-screen">
+    <div class="bg-cyan-950/95 border border-cyan-400/50 rounded-2xl p-4 sm:p-6 max-w-lg w-full text-center flex flex-col gap-3 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-cyan-500/30 pb-2">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🏆</span>
+          <h2 class="text-xl font-black text-cyan-300">Таблица рекордов</h2>
+        </div>
+        <span class="text-xs text-pink-400 font-mono" id="records-count">0 записей</span>
+      </div>
+
+      <div class="max-h-56 overflow-y-auto custom-scroll w-full border border-cyan-500/20 rounded-xl bg-black/30 p-2">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="text-cyan-300/70 border-b border-cyan-800/40 text-[10px] uppercase font-bold">
+              <th class="py-1 px-1">Ранг</th>
+              <th class="py-1 px-1">Песня</th>
+              <th class="py-1 px-1 text-right">Очки</th>
+              <th class="py-1 px-1 text-right">Точность</th>
+              <th class="py-1 px-1 text-right">Дата</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-rows" class="divide-y divide-cyan-950/50"></tbody>
+        </table>
+        <div id="no-records-msg" class="py-8 text-center text-xs text-gray-400 hidden">
+          Рекордов пока нет. Пройдите трек, чтобы установить рекорд!
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-1">
+        <button id="btn-clear-records" class="text-[11px] text-rose-400/80 hover:text-rose-300 transition">
+          🗑 Очистить историю
+        </button>
+        <button id="btn-close-leaderboard" class="cyber-btn text-xs py-1.5 px-6">
+          Закрыть
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Screen -->
+  <div class="overlay-screen hidden-screen" id="settings-screen">
+    <div class="bg-cyan-950/90 border border-cyan-400/40 rounded-2xl p-5 max-w-sm w-full text-center flex flex-col gap-3 shadow-2xl">
+      <h2 class="text-lg font-bold text-cyan-300 flex items-center justify-center gap-2">
+        <span>⚙️</span> Настройки
+      </h2>
+
+      <div class="flex flex-col gap-2.5 text-left text-xs">
+        <div>
+          <div class="flex justify-between text-cyan-200 mb-1">
+            <span>Громкость музыки:</span>
+            <span id="music-vol-val">80%</span>
+          </div>
+          <input type="range" id="music-vol" min="0" max="1" step="0.05" value="0.8" class="w-full accent-cyan-400 cursor-pointer">
+        </div>
+
+        <div>
+          <div class="flex justify-between text-cyan-200 mb-1">
+            <span>Громкость хитсаундов:</span>
+            <span id="hitsound-vol-val">90%</span>
+          </div>
+          <input type="range" id="hitsound-vol" min="0" max="1" step="0.05" value="0.9" class="w-full accent-pink-500 cursor-pointer">
+        </div>
+
+        <div>
+          <div class="flex justify-between text-cyan-200 mb-1">
+            <span>Смещение тайминга (Audio Offset):</span>
+            <span id="offset-val">0 мс</span>
+          </div>
+          <input type="range" id="audio-offset" min="-150" max="150" step="5" value="0" class="w-full accent-yellow-400 cursor-pointer">
+        </div>
+
+        <div class="pt-2 border-t border-cyan-500/20 flex flex-col gap-2">
+          <span class="text-cyan-200 font-semibold">Клавиши нажатия (ПК):</span>
+          <div class="flex items-center justify-between">
+            <span class="text-cyan-300/80">Клавиша 1 (K1):</span>
+            <button id="btn-bind-k1" class="cyber-btn ghost px-3 py-1 text-xs font-mono">Z</button>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-cyan-300/80">Клавиша 2 (K2):</span>
+            <button id="btn-bind-k2" class="cyber-btn ghost px-3 py-1 text-xs font-mono">X</button>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-cyan-300/80">Стиль внутри нот:</span>
+            <select id="settings-note-style" class="bg-cyan-900 border border-cyan-400/50 rounded-lg px-2 py-1 text-cyan-100 font-bold">
+              <option value="combo">1, 2, 3 (Комбо)</option>
+              <option value="keys">Z / X (Клавиши)</option>
+              <option value="dot">• (Точки)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-cyan-500/20 flex items-center justify-between">
+          <span class="text-cyan-200">Режим платформы:</span>
+          <select id="settings-platform-select" class="bg-cyan-900 border border-cyan-400/50 rounded-lg px-2 py-1 text-cyan-100 font-bold">
+            <option value="pc">💻 ПК (Мышь + Z/X)</option>
+            <option value="mobile">📱 Смартфон (Тап)</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="btn-close-settings" class="cyber-btn text-xs py-1.5 px-6 self-center mt-2">
+        Сохранить
+      </button>
+    </div>
+  </div>
+
+  <!-- Pause Screen -->
+  <div class="overlay-screen hidden-screen" id="pause-screen">
+    <div class="text-center flex flex-col items-center gap-3 bg-cyan-950/90 border border-cyan-400/30 p-6 rounded-3xl shadow-2xl">
+      <h2 class="text-3xl font-black text-cyan-300 tracking-wider">ПАУЗА</h2>
+      <p class="text-xs text-cyan-100/70" id="pause-song-name">Название песни</p>
+
+      <div class="flex flex-col gap-2.5 w-44 mt-1">
+        <button id="btn-resume" class="cyber-btn text-xs py-2">Продолжить</button>
+        <button id="btn-restart" class="cyber-btn ghost text-xs py-1.5">Сначала</button>
+        <button id="btn-quit" class="cyber-btn pink text-xs py-1.5">В меню</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Screen -->
+  <div class="overlay-screen hidden-screen" id="result-screen">
+    <div class="text-center flex flex-col items-center gap-2.5 bg-cyan-950/90 border border-cyan-400/40 p-5 sm:p-7 rounded-3xl shadow-2xl max-w-md w-full">
+      <div id="result-rank-badge" class="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center font-black text-5xl shadow-lg border-2 border-white/20 mb-1">
+        S
+      </div>
+
+      <h2 id="result-title" class="text-xl sm:text-2xl font-black text-cyan-300">ПЕСНЯ ПРОЙДЕНА</h2>
+      <p id="result-song-sub" class="text-xs text-pink-400 font-semibold">Track · Difficulty</p>
+
+      <div class="w-full grid grid-cols-2 gap-2 text-left bg-black/40 border border-cyan-500/20 p-3 rounded-xl text-xs sm:text-sm mt-1">
+        <div>Очки: <b id="res-score" class="text-cyan-300 font-mono">0</b></div>
+        <div>Точность: <b id="res-acc" class="text-cyan-300 font-mono">100%</b></div>
+        <div>Макс. Комбо: <b id="res-combo" class="text-pink-400 font-mono">0x</b></div>
+        <div>Промахи: <b id="res-miss" class="text-rose-400 font-mono">0</b></div>
+        <div class="col-span-2 text-[10px] text-cyan-200/60 pt-1 border-t border-cyan-800/40 flex justify-between">
+          <span>300: <b id="res-c300" class="text-emerald-300">0</b></span>
+          <span>100: <b id="res-c100" class="text-amber-300">0</b></span>
+          <span>50: <b id="res-c50" class="text-pink-300">0</b></span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-2 mt-2 w-full">
+        <button id="btn-result-leaderboard" class="cyber-btn ghost py-2 px-4 text-xs">
+          🏆 В рекорды
+        </button>
+        <button id="btn-again-same" class="cyber-btn py-2 px-4 text-xs">
+          ↻ Сыграть ещё раз
+        </button>
+        <button id="btn-again-rand" class="cyber-btn pink py-2 px-4 text-xs">
+          🎲 Случайная
+        </button>
+        <button id="btn-to-menu" class="cyber-btn ghost py-2 px-4 text-xs">
+          Главное меню
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="overlay-screen hidden-screen" id="loading-screen" style="z-index: 45;">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-10 h-10 border-4 border-cyan-400 border-t-pink-500 rounded-full animate-spin"></div>
+      <div id="loading-text" class="text-xs font-bold text-cyan-200 tracking-wide">Загрузка…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+const W = 800, H = 600;
+let baseRadius = 40;
+let currentAR = 0.85;
+
+const $ = id => document.getElementById(id);
+
+let deviceMode = 'pc'; // 'pc' or 'mobile'
+let noteDisplayStyle = 'combo'; // 'combo', 'keys', 'dot'
+
+// Keybind settings
+let keyBindings = {
+  k1: 'z',
+  k2: 'x'
+};
+
+try {
+  const savedKeys = localStorage.getItem('miku_custom_keybinds');
+  if (savedKeys) keyBindings = { ...keyBindings, ...JSON.parse(savedKeys) };
+  const savedStyle = localStorage.getItem('miku_note_style');
+  if (savedStyle) noteDisplayStyle = savedStyle;
+} catch (e) {}
+
+// Key press tracking for on-screen Key Overlay
+const keyOverlayState = {
+  k1: { active: false, count: 0, label: 'K1' },
+  k2: { active: false, count: 0, label: 'K2' },
+  mouse: { active: false, count: 0, label: 'M1' }
+};
+
+function setDeviceMode(mode) {
+  deviceMode = mode;
+  try {
+    localStorage.setItem('miku_device_mode', mode);
+  } catch (e) {}
+
+  document.body.classList.remove('mode-pc', 'mode-mobile');
+  document.body.classList.add(mode === 'mobile' ? 'mode-mobile' : 'mode-pc');
+
+  const badge = $('platform-badge');
+  const btnPc = $('toggle-mode-pc');
+  const btnMob = $('toggle-mode-mobile');
+  const hintText = $('controls-hint-text');
+
+  if (mode === 'mobile') {
+    if (badge) badge.textContent = '📱 ТЕЛЕФОН / ТАЧ';
+    if (hintText) hintText.innerHTML = 'Тапайте <b>прямо по нотам пальцами</b> в такт музыке!';
+    if (btnPc && btnMob) {
+      btnMob.className = 'px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition border border-pink-400 bg-pink-600 text-white shadow';
+      btnPc.className = 'px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition border border-cyan-400/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900';
+    }
+  } else {
+    if (badge) badge.textContent = '💻 РЕЖИМ ПК';
+    if (hintText) hintText.innerHTML = 'ПК: <b>Клик мыши</b> или клавиши <b>[' + keyBindings.k1.toUpperCase() + '] [' + keyBindings.k2.toUpperCase() + ']</b> · Пауза: <b>[Esc]</b>';
+    if (btnPc && btnMob) {
+      btnPc.className = 'px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition border border-cyan-400 bg-cyan-500 text-gray-900 shadow';
+      btnMob.className = 'px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition border border-cyan-400/40 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900';
+    }
+  }
+
+  const setSelect = $('settings-platform-select');
+  if (setSelect) setSelect.value = mode;
+}
+
+// Avatar upload and persistence
+const avatarImg = $('miku-avatar-img');
+const avatarContainer = $('avatar-container');
+const avatarInput = $('avatar-input');
+
+try {
+  const savedAvatar = localStorage.getItem('miku_custom_avatar_deluxe');
+  if (savedAvatar && avatarImg) {
+    avatarImg.src = savedAvatar;
+  }
+} catch (e) {}
+
+if (avatarContainer && avatarInput) {
+  avatarContainer.onclick = () => avatarInput.click();
+  avatarInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        avatarImg.src = dataUrl;
+        try {
+          localStorage.setItem('miku_custom_avatar_deluxe', dataUrl);
+          showToast('Аватарка Мику обновлена!');
+        } catch (err) {
+          showToast('Фото установлено на текущую сессию!');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+}
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = cv.getBoundingClientRect();
+  const rw = rect.width > 0 ? rect.width : W;
+  const rh = rect.height > 0 ? rect.height : H;
+  cv.width = rw * dpr;
+  cv.height = rh * dpr;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.scale((rw * dpr) / W, (rh * dpr) / H);
+}
+window.addEventListener('resize', resizeCanvas);
+
+function showToast(text) {
+  const t = $('toast-msg');
+  if (!t) return;
+  t.textContent = text;
+  t.classList.remove('opacity-0');
+  setTimeout(() => t.classList.add('opacity-0'), 2500);
+}
+
+let ac = null;
+let masterGain = null;
+let hitsoundGain = null;
+let analyser = null;
+let freqData = new Uint8Array(64);
+
+let musicVolume = 0.8;
+let hitsoundVolume = 0.9;
+let audioOffsetMs = 0;
+
+let songs = [];
+let selectedSongIdx = 0;
+let currentSong = null;
+let currentDiffKey = '0.28';
+let audioSourceNode = null;
+let playbackStartCtxTime = 0;
+let pausedAtCtxTime = 0;
+let totalPausedOffset = 0;
+
+let notes = [];
+let noteIndex = 0;
+let gameState = 'menu'; // 'menu', 'countdown', 'play', 'pause', 'end'
+let beatPulse = 0;
+
+// Countdown State (3-second intro)
+let countdownStartTime = 0;
+let countdownRemaining = 3;
+
+let score = 0;
+let combo = 0;
+let maxCombo = 0;
+let hp = 100;
+let hitCounts = { 300: 0, 100: 0, 50: 0, 0: 0 };
+let feedbackEffects = [];
+let particles = [];
+let touchRipples = [];
+let mouse = { x: W / 2, y: H / 2, down: false };
+let mouseTrail = [];
+let timingErrors = [];
+
+const mods = {
+  auto: false,
+  relax: false,
+  suddenDeath: false,
+  doubleTime: false,
+  hardRock: false,
+  mirror: false
+};
+
+function loadSavedScores() {
+  try {
+    const raw = localStorage.getItem('miku_beats_scores_deluxe_v3');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [
+    { id: 1, songName: '🌸 Senbonzakura Melody', diff: 'Сложная', score: 365200, acc: 98.70, combo: 198, rank: 'SS', date: 'Сегодня' },
+    { id: 2, songName: '🏎 Cyberpunk Tokyo Drift', diff: 'Обычная', score: 248900, acc: 96.15, combo: 142, rank: 'S', date: 'Вчера' }
+  ];
+}
+
+function persistScores() {
+  try {
+    localStorage.setItem('miku_beats_scores_deluxe_v3', JSON.stringify(highScores));
+  } catch (e) {}
+}
+
+let highScores = loadSavedScores();
+
+const DIFF_CONFIG = {
+  '0.44': { label: '★ Легко', color: '#86e3ce', gap: 0.44, ar: 1.05 },
+  '0.28': { label: '★★ Обычная', color: '#39c5bb', gap: 0.28, ar: 0.85 },
+  '0.18': { label: '★★★ Сложная', color: '#ffd166', gap: 0.18, ar: 0.65 },
+  '0.09': { label: '★★★★ Безумие (Miku!)', color: '#ff2a8d', gap: 0.09, ar: 0.44 }
+};
+
+function ensureAudioContext() {
+  try {
+    if (!ac) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      ac = new AudioCtx();
+      masterGain = ac.createGain();
+      masterGain.gain.value = musicVolume;
+
+      hitsoundGain = ac.createGain();
+      hitsoundGain.gain.value = hitsoundVolume;
+      hitsoundGain.connect(ac.destination);
+
+      analyser = ac.createAnalyser();
+      analyser.fftSize = 128;
+      analyser.smoothingTimeConstant = 0.8;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+
+      masterGain.connect(analyser);
+      analyser.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') {
+      ac.resume().catch(() => {});
+    }
+  } catch (e) {
+    console.warn("AudioContext setup warning:", e);
+  }
+}
+
+function synthesizeDistinctSong(genreIdx) {
+  ensureAudioContext();
+  const sr = (ac && ac.sampleRate) ? ac.sampleRate : 44100;
+
+  const GENRES = [
+    {
+      title: "🌸 Senbonzakura Melody",
+      style: "jpop",
+      bpm: 152,
+      duration: 32,
+      scale: [220, 246.94, 261.63, 329.63, 349.23, 440, 523.25, 659.25],
+      badge: "J-Pop"
+    },
+    {
+      title: "🏎️ Cyberpunk Tokyo Drift",
+      style: "eurobeat",
+      bpm: 160,
+      duration: 30,
+      scale: [146.83, 174.61, 196.00, 220.00, 261.63, 293.66, 349.23, 392.00],
+      badge: "Eurobeat"
+    },
+    {
+      title: "👾 Akihabara 8-Bit Pixel",
+      style: "chiptune",
+      bpm: 140,
+      duration: 28,
+      scale: [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25],
+      badge: "8-Bit"
+    },
+    {
+      title: "⚡ Hardcore Rave Evolution",
+      style: "jcore",
+      bpm: 175,
+      duration: 28,
+      scale: [185.00, 220.00, 246.94, 277.18, 329.63, 369.99, 440.00, 493.88],
+      badge: "J-Core"
+    },
+    {
+      title: "☕ Shibuya Chill Future Bass",
+      style: "futurebass",
+      bpm: 115,
+      duration: 32,
+      scale: [196.00, 220.00, 246.94, 293.66, 329.63, 392.00, 440.00, 493.88],
+      badge: "Chill Bass"
+    },
+    {
+      title: "🔥 Speedcore Armageddon",
+      style: "speedcore",
+      bpm: 195,
+      duration: 26,
+      scale: [164.81, 196.00, 220.00, 246.94, 293.66, 329.63, 392.00, 493.88],
+      badge: "Speedcore"
+    }
+  ];
+
+  const cfg = GENRES[genreIdx % GENRES.length];
+  const lengthSec = cfg.duration;
+  const numSamples = Math.floor(sr * lengthSec);
+  const audioBuf = ac ? ac.createBuffer(2, numSamples, sr) : { duration: lengthSec, getChannelData: () => new Float32Array(numSamples), sampleRate: sr };
+  const left = audioBuf.getChannelData(0);
+  const right = audioBuf.getChannelData(1);
+
+  const beatSec = 60 / cfg.bpm;
+  const totalBeats = Math.floor(lengthSec / beatSec);
+  const scale = cfg.scale;
+
+  for (let b = 0; b < totalBeats; b++) {
+    const beatStart = Math.floor(b * beatSec * sr);
+    const beatDur = Math.floor(beatSec * sr);
+
+    const isKick = (cfg.style === 'futurebass') ? (b % 4 === 0 || b % 8 === 6)
+      : (cfg.style === 'chiptune') ? (b % 2 === 0)
+      : true;
+
+    const isSnare = (cfg.style === 'futurebass') ? (b % 4 === 2) : (b % 2 === 1);
+
+    // 1. Kick Drum
+    if (isKick) {
+      const kickLen = Math.min(Math.floor(0.14 * sr), numSamples - beatStart);
+      const isDistorted = (cfg.style === 'speedcore');
+      for (let i = 0; i < kickLen; i++) {
+        const t = i / sr;
+        const freq = (isDistorted ? 180 : 130) * Math.exp(-t * (isDistorted ? 24 : 32)) + 40;
+        let v = Math.sin(2 * Math.PI * freq * t) * Math.exp(-t * 18);
+        if (isDistorted) v = Math.max(-0.8, Math.min(0.8, v * 2.2));
+        left[beatStart + i] += v * 0.9;
+        right[beatStart + i] += v * 0.9;
+      }
+    }
+
+    // 2. Snare / Claps
+    if (isSnare) {
+      const snareLen = Math.min(Math.floor(0.18 * sr), numSamples - beatStart);
+      for (let i = 0; i < snareLen; i++) {
+        const t = i / sr;
+        const noise = (Math.random() * 2 - 1) * Math.exp(-t * 22) * 0.45;
+        const tone = Math.sin(2 * Math.PI * (cfg.style === 'jpop' ? 280 : 210) * t) * Math.exp(-t * 28) * 0.35;
+        left[beatStart + i] += (noise + tone) * 0.8;
+        right[beatStart + i] += (noise + tone) * 0.8;
+      }
+    }
+
+    // 3. Hi-Hats
+    const hatSubdiv = (cfg.style === 'eurobeat' || cfg.style === 'jcore') ? 4 : 2;
+    for (let sub = 0; sub < hatSubdiv; sub++) {
+      const hatStart = beatStart + Math.floor(sub * (beatDur / hatSubdiv));
+      if (hatStart < numSamples) {
+        const hatLen = Math.min(Math.floor(0.025 * sr), numSamples - hatStart);
+        const hatVol = (sub % 2 === 1) ? 0.22 : 0.11;
+        for (let i = 0; i < hatLen; i++) {
+          const t = i / sr;
+          const h = (Math.random() * 2 - 1) * Math.exp(-t * 90) * hatVol;
+          left[hatStart + i] += h * 0.7;
+          right[hatStart + i] += h * 1.1;
+        }
+      }
+    }
+
+    // 4. Basslines and Melodies per genre
+    const synthLen = Math.min(beatDur, numSamples - beatStart);
+
+    if (cfg.style === 'eurobeat') {
+      const rootF = scale[Math.floor(b / 8) % 4];
+      for (let sub = 0; sub < 4; sub++) {
+        const subStart = beatStart + Math.floor(sub * (beatDur / 4));
+        const subLen = Math.min(Math.floor(beatDur / 4), numSamples - subStart);
+        const octF = (sub % 2 === 1) ? rootF * 2 : rootF;
+        for (let i = 0; i < subLen; i++) {
+          const t = i / sr;
+          const saw = (2 * ((octF * t) % 1) - 1) * Math.exp(-t * 12) * 0.32;
+          left[subStart + i] += saw;
+          right[subStart + i] += saw * 0.8;
+        }
+      }
+    } else if (cfg.style === 'chiptune') {
+      for (let sub = 0; sub < 4; sub++) {
+        const subStart = beatStart + Math.floor(sub * (beatDur / 4));
+        const subLen = Math.min(Math.floor(beatDur / 4), numSamples - subStart);
+        const arpFreq = scale[(b * 3 + sub) % scale.length];
+        for (let i = 0; i < subLen; i++) {
+          const t = i / sr;
+          const sq = (Math.sin(2 * Math.PI * arpFreq * t) > 0 ? 0.22 : -0.22) * Math.exp(-t * 7);
+          left[subStart + i] += sq;
+          right[subStart + i] += sq;
+        }
+      }
+    } else if (cfg.style === 'futurebass') {
+      const chord = [scale[b % scale.length], scale[(b + 2) % scale.length], scale[(b + 4) % scale.length]];
+      for (let i = 0; i < synthLen; i++) {
+        const t = i / sr;
+        let cVal = 0;
+        for (let k = 0; k < chord.length; k++) {
+          cVal += Math.sin(2 * Math.PI * chord[k] * t) * 0.12;
+        }
+        cVal *= Math.exp(-t * 2.2);
+        left[beatStart + i] += cVal;
+        right[beatStart + i] += cVal * 1.1;
+      }
+    } else {
+      const melodyFreq = scale[(b * 2 + (b % 3)) % scale.length];
+      for (let i = 0; i < synthLen; i++) {
+        const t = i / sr;
+        const pluck = (Math.sin(2 * Math.PI * melodyFreq * t) + 0.5 * Math.sin(4 * Math.PI * melodyFreq * t)) * Math.exp(-t * 6) * 0.28;
+        left[beatStart + i] += pluck;
+        right[beatStart + i] += pluck * 0.9;
+      }
+    }
+  }
+
+  // Rational peak compression
+  let maxAmp = 0.001;
+  for (let i = 0; i < numSamples; i += 40) {
+    const ampL = Math.abs(left[i]);
+    if (ampL > maxAmp) maxAmp = ampL;
+  }
+  const normFactor = Math.min(1.4, 0.82 / maxAmp);
+  for (let i = 0; i < numSamples; i++) {
+    const l = left[i] * normFactor;
+    const r = right[i] * normFactor;
+    left[i] = l / (1 + Math.abs(l));
+    right[i] = r / (1 + Math.abs(r));
+  }
+
+  // Build notes aligned to rhythmic beats
+  const builtinNotes = [];
+  let px = W / 2, py = H / 2;
+  let angle = Math.random() * Math.PI * 2;
+  const marginX = baseRadius + 45, marginY = baseRadius + 70;
+  let comboCounter = 1;
+
+  for (let b = 2; b < totalBeats - 1; b++) {
+    const noteTime = b * beatSec;
+    const stepDist = 80 + Math.random() * 85;
+    angle += (Math.random() - 0.5) * 2.2;
+
+    let nx = px + Math.cos(angle) * stepDist;
+    let ny = py + Math.sin(angle) * stepDist;
+
+    if (nx < marginX || nx > W - marginX) {
+      angle = Math.PI - angle;
+      nx = Math.max(marginX, Math.min(W - marginX, nx));
+    }
+    if (ny < marginY || ny > H - marginY) {
+      angle = -angle;
+      ny = Math.max(marginY, Math.min(H - marginY, ny));
+    }
+
+    px = nx;
+    py = ny;
+
+    if (b % 8 === 0) comboCounter = 1;
+
+    builtinNotes.push({
+      t: noteTime,
+      x: px,
+      y: py,
+      num: comboCounter++,
+      hit: false
+    });
+  }
+
+  return {
+    name: cfg.title,
+    badge: cfg.badge,
+    bpm: cfg.bpm,
+    duration: lengthSec,
+    buf: audioBuf,
+    isBuiltin: true,
+    isOsu: false,
+    builtinNotes: builtinNotes
+  };
+}
+
+function loadDefaultSongs() {
+  try {
+    ensureAudioContext();
+    songs = [];
+    for (let i = 0; i < 6; i++) {
+      songs.push(synthesizeDistinctSong(i));
+    }
+    renderSongList();
+    renderLeaderboard();
+  } catch (err) {
+    console.error("Synthesizer initialization error:", err);
+  } finally {
+    $('loading-screen').classList.add('hidden-screen');
+  }
+}
+
+function parseOsuContent(osuText) {
+  if (typeof osuText !== 'string') return null;
+  const lines = osuText.split(/\r?\n/);
+  let currentSection = '';
+  
+  const mapData = {
+    general: {},
+    metadata: { Title: 'osu! Track', Artist: 'Unknown', Version: 'Normal' },
+    difficulty: { HPDrainRate: 5, CircleSize: 4, OverallDifficulty: 8, ApproachRate: 8 },
+    hitObjects: []
+  };
+
+  for (let rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('//')) continue;
+
+    if (line.startsWith('[') && line.endsWith(']')) {
+      currentSection = line.slice(1, -1);
+      continue;
+    }
+
+    if (currentSection === 'General' || currentSection === 'Metadata' || currentSection === 'Difficulty') {
+      const colonIdx = line.indexOf(':');
+      if (colonIdx !== -1) {
+        const key = line.slice(0, colonIdx).trim();
+        const val = line.slice(colonIdx + 1).trim();
+        if (currentSection === 'Difficulty') {
+          const num = parseFloat(val);
+          if (!isNaN(num)) mapData.difficulty[key] = num;
+        } else if (currentSection === 'Metadata') {
+          mapData.metadata[key] = val;
+        } else if (currentSection === 'General') {
+          mapData.general[key] = val;
+        }
+      }
+    } else if (currentSection === 'HitObjects') {
+      const parts = line.split(',');
+      if (parts.length >= 4) {
+        const ox = parseFloat(parts[0]);
+        const oy = parseFloat(parts[1]);
+        const oTime = parseFloat(parts[2]) / 1000;
+        const oType = parseInt(parts[3], 10);
+        if (!isNaN(ox) && !isNaN(oy) && !isNaN(oTime) && oTime >= 0) {
+          mapData.hitObjects.push({ x: ox, y: oy, t: oTime, type: oType });
+        }
+      }
+    }
+  }
+
+  if (!mapData.hitObjects.length) return null;
+  mapData.hitObjects.sort((a, b) => a.t - b.t);
+
+  const scale = Math.min((W - 140) / 512, (H - 150) / 384);
+  const offX = (W - 512 * scale) / 2;
+  const offY = (H - 384 * scale) / 2 + 25;
+
+  const parsedNotes = [];
+  let currentComboNum = 1;
+
+  for (let i = 0; i < mapData.hitObjects.length; i++) {
+    const ho = mapData.hitObjects[i];
+    const isNewCombo = (ho.type & 4) !== 0 || i === 0;
+    if (isNewCombo) currentComboNum = 1;
+
+    const canvasX = offX + ho.x * scale;
+    const canvasY = offY + ho.y * scale;
+
+    parsedNotes.push({
+      t: ho.t,
+      x: Math.max(baseRadius + 15, Math.min(W - baseRadius - 15, canvasX)),
+      y: Math.max(baseRadius + 50, Math.min(H - baseRadius - 15, canvasY)),
+      num: currentComboNum++,
+      hit: false
+    });
+  }
+
+  const arVal = mapData.difficulty.ApproachRate !== undefined ? mapData.difficulty.ApproachRate : 8;
+  let preemptSec = 1.2;
+  if (arVal < 5) {
+    preemptSec = (1200 + 600 * (5 - arVal) / 5) / 1000;
+  } else if (arVal > 5) {
+    preemptSec = (1200 - 750 * (arVal - 5) / 5) / 1000;
+  }
+
+  return {
+    title: mapData.metadata.Title || 'osu! Beatmap',
+    artist: mapData.metadata.Artist || '',
+    version: mapData.metadata.Version || 'Normal',
+    ar: Math.max(0.35, Math.min(1.8, preemptSec)),
+    notes: parsedNotes
+  };
+}
+
+$('file-input').onchange = async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+
+  ensureAudioContext();
+  $('loading-screen').classList.remove('hidden-screen');
+  $('loading-text').textContent = 'Чтение файлов…';
+
+  let loadedCount = 0;
+  const standaloneOsuFiles = [];
+  const directAudioFiles = [];
+
+  for (const f of files) {
+    const fname = f.name.toLowerCase();
+
+    if (fname.endsWith('.osz') || fname.endsWith('.zip')) {
+      try {
+        $('loading-text').textContent = `Распаковка архива ${f.name}…`;
+        const zip = await JSZip.loadAsync(f);
+        
+        const osuFiles = [];
+        let audioZipEntry = null;
+
+        for (const [relPath, zipEntry] of Object.entries(zip.files)) {
+          if (zipEntry.dir) continue;
+          const lower = relPath.toLowerCase();
+          if (lower.endsWith('.osu')) {
+            osuFiles.push(zipEntry);
+          } else if (lower.endsWith('.mp3') || lower.endsWith('.ogg') || lower.endsWith('.wav')) {
+            if (!audioZipEntry) audioZipEntry = zipEntry;
+          }
+        }
+
+        if (osuFiles.length > 0 && audioZipEntry) {
+          $('loading-text').textContent = `Декодирование музыки карты…`;
+          const audioArrayBuf = await audioZipEntry.async('arraybuffer');
+          const decodedAudioBuf = await ac.decodeAudioData(audioArrayBuf);
+
+          for (const osuEntry of osuFiles) {
+            const osuText = await osuEntry.async('string');
+            const parsedOsu = parseOsuContent(osuText);
+
+            if (parsedOsu && parsedOsu.notes.length > 0) {
+              songs.push({
+                name: `${parsedOsu.title} [${parsedOsu.version}]`,
+                artist: parsedOsu.artist,
+                version: parsedOsu.version,
+                buf: decodedAudioBuf,
+                isBuiltin: false,
+                isOsu: true,
+                osuAR: parsedOsu.ar,
+                osuNotes: parsedOsu.notes
+              });
+              loadedCount++;
+            }
+          }
+        } else {
+          showToast("В архиве .osz не найдено аудио или карт .osu");
+        }
+      } catch (zipErr) {
+        console.warn("Ошибка распаковки .osz:", zipErr);
+        showToast("Не удалось распаковать .osz архив.");
+      }
+    } else if (fname.endsWith('.osu')) {
+      standaloneOsuFiles.push(f);
+    } else if (f.type.startsWith('audio/') || fname.endsWith('.mp3') || fname.endsWith('.wav') || fname.endsWith('.ogg') || fname.endsWith('.flac')) {
+      directAudioFiles.push(f);
+    }
+  }
+
+  if (standaloneOsuFiles.length > 0) {
+    let pairedAudioBuf = null;
+    if (directAudioFiles.length > 0) {
+      try {
+        const audioBufRaw = await directAudioFiles[0].arrayBuffer();
+        pairedAudioBuf = await ac.decodeAudioData(audioBufRaw);
+      } catch (err) {}
+    } else if (songs.length > 0 && songs[selectedSongIdx]) {
+      pairedAudioBuf = songs[selectedSongIdx].buf;
+    }
+
+    for (const osuFile of standaloneOsuFiles) {
+      try {
+        const osuText = await osuFile.text();
+        const parsedOsu = parseOsuContent(osuText);
+        if (parsedOsu && parsedOsu.notes.length > 0) {
+          let songBuf = pairedAudioBuf || (songs.length > 0 ? songs[0].buf : null);
+          if (songBuf) {
+            songs.push({
+              name: `${parsedOsu.title} [${parsedOsu.version}]`,
+              artist: parsedOsu.artist,
+              version: parsedOsu.version,
+              buf: songBuf,
+              isBuiltin: false,
+              isOsu: true,
+              osuAR: parsedOsu.ar,
+              osuNotes: parsedOsu.notes
+            });
+            loadedCount++;
+          }
+        }
+      } catch (err) {
+        console.warn("Ошибка чтения .osu файла:", err);
+      }
+    }
+  }
+
+  for (const f of directAudioFiles) {
+    try {
+      $('loading-text').textContent = `Декодирование ${f.name}…`;
+      const arrayBuf = await f.arrayBuffer();
+      const decodedBuf = await ac.decodeAudioData(arrayBuf);
+      songs.push({
+        name: f.name.replace(/\.[^.]+$/, ''),
+        buf: decodedBuf,
+        isBuiltin: false,
+        isOsu: false
+      });
+      loadedCount++;
+    } catch (err) {
+      console.warn("Ошибка декодирования аудио:", f.name, err);
+    }
+  }
+
+  $('loading-screen').classList.add('hidden-screen');
+  if (loadedCount > 0) {
+    selectedSongIdx = songs.length - 1;
+    renderSongList();
+    showToast(`Загружено ${loadedCount} новых треков/карт!`);
+  }
+};
+
+function renderSongList() {
+  const ul = $('song-list');
+  if (!ul) return;
+  ul.innerHTML = '';
+  $('song-count').textContent = songs.length;
+
+  songs.forEach((s, idx) => {
+    const li = document.createElement('li');
+    const isSel = (idx === selectedSongIdx);
+    li.className = `flex items-center justify-between gap-2 p-1.5 px-2.5 rounded-xl transition cursor-pointer border ${
+      isSel 
+        ? 'bg-pink-900/40 border-pink-500/80 shadow-[0_0_12px_rgba(255,42,141,0.3)]' 
+        : 'bg-cyan-950/40 border-cyan-500/20 hover:bg-cyan-900/30 hover:border-cyan-400/50'
+    }`;
+
+    const leftDiv = document.createElement('div');
+    leftDiv.className = 'flex items-center gap-2 overflow-hidden';
+    
+    const numBadge = document.createElement('span');
+    numBadge.className = `font-mono text-xs font-bold px-1.5 py-0.5 rounded-md ${
+      s.isOsu 
+        ? 'bg-pink-600 text-white' 
+        : isSel 
+        ? 'bg-pink-500 text-white' 
+        : 'bg-cyan-900/60 text-cyan-300'
+    }`;
+    numBadge.textContent = s.isOsu ? 'osu!' : (s.badge || String(idx + 1).padStart(2, '0'));
+
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'flex flex-col overflow-hidden text-left';
+
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'font-bold text-xs sm:text-sm text-cyan-100 truncate';
+    titleSpan.textContent = s.name;
+
+    const subSpan = document.createElement('span');
+    subSpan.className = 'text-[10px] text-cyan-300/60 font-mono';
+    const durSec = (s.buf && s.buf.duration) ? s.buf.duration : 0;
+    const durStr = Math.floor(durSec / 60) + ':' + String(Math.floor(durSec % 60)).padStart(2, '0');
+    
+    if (s.isOsu) {
+      subSpan.textContent = `${durStr} · ${s.osuNotes.length} нот · Карта osu!`;
+    } else {
+      subSpan.textContent = `${durStr} · ${s.bpm ? s.bpm + ' BPM' : 'Аудио'} ${s.isBuiltin ? '★ Встроенная' : '📂 Локальная'}`;
+    }
+
+    metaDiv.append(titleSpan, subSpan);
+    leftDiv.append(numBadge, metaDiv);
+
+    const rightDiv = document.createElement('div');
+    rightDiv.className = 'flex items-center gap-1.5';
+
+    if (!s.isBuiltin) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'text-xs text-cyan-400/60 hover:text-rose-400 px-2 py-1 transition';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Удалить трек';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        songs.splice(idx, 1);
+        if (selectedSongIdx >= songs.length) selectedSongIdx = Math.max(0, songs.length - 1);
+        renderSongList();
+      };
+      rightDiv.appendChild(delBtn);
+    }
+
+    li.onclick = () => {
+      selectedSongIdx = idx;
+      playHitsound(600, 0.05);
+      renderSongList();
+    };
+
+    li.append(leftDiv, rightDiv);
+    ul.appendChild(li);
+  });
+
+  const hasSongs = songs.length > 0;
+  $('btn-start').disabled = !hasSongs;
+  $('btn-random').disabled = !hasSongs;
+
+  const selSong = songs[selectedSongIdx];
+  if (selSong && selSong.isOsu) {
+    $('diff-container').classList.add('opacity-40', 'pointer-events-none');
+  } else {
+    $('diff-container').classList.remove('opacity-40', 'pointer-events-none');
+  }
+}
+
+function renderLeaderboard() {
+  const tbody = $('leaderboard-rows');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  $('records-count').textContent = `${highScores.length} записей`;
+
+  if (highScores.length === 0) {
+    $('no-records-msg').classList.remove('hidden');
+    return;
+  }
+  $('no-records-msg').classList.add('hidden');
+
+  highScores.forEach((rec) => {
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-cyan-900/20 transition';
+
+    const rankColor = rec.rank === 'SS' ? 'text-pink-400 font-black animate-pulse'
+      : rec.rank === 'S' ? 'text-yellow-300 font-bold'
+      : rec.rank === 'A' ? 'text-emerald-300 font-bold'
+      : 'text-cyan-300 font-bold';
+
+    tr.innerHTML = `
+      <td class="py-1.5 px-1 ${rankColor}">${rec.rank}</td>
+      <td class="py-1.5 px-1 truncate max-w-[120px] sm:max-w-[180px]">
+        <span class="font-semibold text-cyan-100">${rec.songName}</span>
+        <span class="block text-[9px] text-cyan-400/60">${rec.diff} · ${rec.combo}x комбо</span>
+      </td>
+      <td class="py-1.5 px-1 text-right font-mono font-bold text-cyan-200">${rec.score.toLocaleString()}</td>
+      <td class="py-1.5 px-1 text-right font-mono text-cyan-300">${rec.acc.toFixed(1)}%</td>
+      <td class="py-1.5 px-1 text-right text-[10px] text-gray-400 font-mono">${rec.date}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function playHitsound(freq = 880, duration = 0.06) {
+  if (!ac || hitsoundVolume <= 0.01) return;
+  try {
+    const osc = ac.createOscillator();
+    const gNode = ac.createGain();
+    const t = ac.currentTime;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(140, t + duration);
+
+    gNode.gain.setValueAtTime(hitsoundVolume * 0.7, t);
+    gNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    osc.connect(gNode);
+    gNode.connect(hitsoundGain);
+
+    osc.start(t);
+    osc.stop(t + duration);
+  } catch (e) {}
+}
+
+function playCountdownBeep(isFinal = false) {
+  if (!ac) return;
+  try {
+    const osc = ac.createOscillator();
+    const gNode = ac.createGain();
+    const t = ac.currentTime;
+
+    osc.type = isFinal ? 'sawtooth' : 'sine';
+    osc.frequency.setValueAtTime(isFinal ? 880 : 440, t);
+    if (isFinal) {
+      osc.frequency.exponentialRampToValueAtTime(1320, t + 0.2);
+    }
+
+    gNode.gain.setValueAtTime(0.25, t);
+    gNode.gain.exponentialRampToValueAtTime(0.001, t + (isFinal ? 0.35 : 0.12));
+
+    osc.connect(gNode);
+    gNode.connect(masterGain);
+
+    osc.start(t);
+    osc.stop(t + (isFinal ? 0.35 : 0.12));
+  } catch (e) {}
+}
+
+function startGame(song, diffKey) {
+  try {
+    ensureAudioContext();
+    currentDiffKey = diffKey;
+
+    // Apply Hard Rock radius modification
+    baseRadius = mods.hardRock ? 30 : 40;
+
+    let generatedNotes = [];
+    if (song.isOsu) {
+      let baseAR = song.osuAR || 0.85;
+      if (mods.hardRock) baseAR *= 0.75;
+      currentAR = Math.max(0.32, baseAR);
+
+      generatedNotes = song.osuNotes.map(n => ({
+        ...n,
+        t: n.t + 3.0,
+        x: mods.mirror ? (W - n.x) : n.x,
+        y: mods.mirror ? (H - n.y + 40) : n.y,
+        hit: false
+      }));
+    } else if (song.isBuiltin && song.builtinNotes) {
+      const cfg = DIFF_CONFIG[diffKey] || DIFF_CONFIG['0.28'];
+      let targetAR = cfg.ar;
+      if (mods.hardRock) targetAR *= 0.75;
+      currentAR = targetAR;
+
+      const isInsane = (diffKey === '0.09');
+      const isHard = (diffKey === '0.18');
+      const isEasy = (diffKey === '0.44');
+
+      const builtins = song.builtinNotes;
+      let comboC = 1;
+
+      if (isInsane) {
+        for (let i = 0; i < builtins.length; i++) {
+          const baseN = builtins[i];
+          const t0 = baseN.t + 3.0;
+
+          generatedNotes.push({
+            t: t0,
+            x: mods.mirror ? (W - baseN.x) : baseN.x,
+            y: mods.mirror ? (H - baseN.y + 40) : baseN.y,
+            num: comboC++,
+            hit: false
+          });
+          if (comboC > 8) comboC = 1;
+
+          if (i < builtins.length - 1) {
+            const nextN = builtins[i + 1];
+            const halfT = (t0 + nextN.t + 3.0) / 2;
+            const midX = (baseN.x + nextN.x) / 2 + (Math.sin(i * 3) * 60);
+            const midY = (baseN.y + nextN.y) / 2 + (Math.cos(i * 3) * 60);
+
+            const clampedX = Math.max(baseRadius + 20, Math.min(W - baseRadius - 20, midX));
+            const clampedY = Math.max(baseRadius + 50, Math.min(H - baseRadius - 20, midY));
+
+            generatedNotes.push({
+              t: halfT,
+              x: mods.mirror ? (W - clampedX) : clampedX,
+              y: mods.mirror ? (H - clampedY + 40) : clampedY,
+              num: comboC++,
+              hit: false
+            });
+            if (comboC > 8) comboC = 1;
+          }
+        }
+      } else if (isHard) {
+        generatedNotes = builtins.map((n, i) => ({
+          ...n,
+          t: n.t + 3.0,
+          x: mods.mirror ? (W - n.x) : n.x,
+          y: mods.mirror ? (H - n.y + 40) : n.y,
+          num: (i % 8) + 1,
+          hit: false
+        }));
+      } else {
+        const step = isEasy ? 2 : 1;
+        generatedNotes = builtins
+          .filter((_, idx) => idx % step === 0)
+          .map((n, i) => ({
+            ...n,
+            t: n.t + 3.0,
+            x: mods.mirror ? (W - n.x) : n.x,
+            y: mods.mirror ? (H - n.y + 40) : n.y,
+            num: (i % 8) + 1,
+            hit: false
+          }));
+      }
+    } else {
+      const dur = song.buf.duration || 30;
+      const step = parseFloat(diffKey) || 0.28;
+      let comboC = 1;
+      let px = W / 2, py = H / 2, a = 0;
+      for (let t = 3.5; t < dur - 1; t += step) {
+        a += (Math.random() - 0.5) * 2.3;
+        let nx = px + Math.cos(a) * 110;
+        let ny = py + Math.sin(a) * 110;
+        if (nx < baseRadius + 40 || nx > W - baseRadius - 40) { a = Math.PI - a; nx = Math.max(baseRadius + 40, Math.min(W - baseRadius - 40, nx)); }
+        if (ny < baseRadius + 60 || ny > H - baseRadius - 40) { a = -a; ny = Math.max(baseRadius + 60, Math.min(H - baseRadius - 40, ny)); }
+        px = nx; py = ny;
+        generatedNotes.push({
+          t,
+          x: mods.mirror ? (W - px) : px,
+          y: mods.mirror ? (H - py + 40) : py,
+          num: comboC++,
+          hit: false
+        });
+        if (comboC > 8) comboC = 1;
+      }
+      currentAR = (diffKey === '0.09') ? 0.44 : 0.85;
+    }
+
+    currentSong = song;
+    notes = generatedNotes;
+    noteIndex = 0;
+
+    score = 0;
+    combo = 0;
+    maxCombo = 0;
+    hp = 100;
+    hitCounts = { 300: 0, 100: 0, 50: 0, 0: 0 };
+    feedbackEffects = [];
+    particles = [];
+    touchRipples = [];
+    mouseTrail = [];
+    timingErrors = [];
+
+    keyOverlayState.k1.count = 0;
+    keyOverlayState.k2.count = 0;
+    keyOverlayState.mouse.count = 0;
+
+    $('menu-screen').classList.add('hidden-screen');
+    $('result-screen').classList.add('hidden-screen');
+    $('pause-screen').classList.add('hidden-screen');
+    $('leaderboard-screen').classList.add('hidden-screen');
+    resizeCanvas();
+
+    if (audioSourceNode) {
+      try { audioSourceNode.stop(); audioSourceNode.disconnect(); } catch (e) {}
+    }
+
+    audioSourceNode = ac.createBufferSource();
+    audioSourceNode.buffer = song.buf;
+    if (mods.doubleTime) {
+      audioSourceNode.playbackRate.value = 1.4;
+    }
+    audioSourceNode.connect(masterGain);
+
+    totalPausedOffset = 0;
+    playbackStartCtxTime = ac.currentTime;
+    audioSourceNode.start(playbackStartCtxTime);
+
+    // Enter 3-second countdown state
+    gameState = 'countdown';
+    countdownStartTime = performance.now();
+    countdownRemaining = 3;
+    playCountdownBeep(false);
+
+    requestAnimationFrame(gameLoop);
+  } catch (err) {
+    console.error("Match launch exception:", err);
+    showToast("Ошибка старта: " + (err.message || err));
+  }
+}
+
+const getSongTime = () => {
+  if (!ac) return 0;
+  const rate = mods.doubleTime ? 1.4 : 1.0;
+  return ((ac.currentTime - playbackStartCtxTime - totalPausedOffset) * rate) + (audioOffsetMs / 1000);
+};
+
+function togglePause() {
+  if (gameState !== 'play' && gameState !== 'pause') return;
+  if (gameState === 'play') {
+    gameState = 'pause';
+    pausedAtCtxTime = ac.currentTime;
+    try { ac.suspend(); } catch (e) {}
+    const diffLabel = currentSong.isOsu ? 'osu! Map' : (DIFF_CONFIG[currentDiffKey]?.label || 'Обычная');
+    $('pause-song-name').textContent = `${currentSong.name} (${diffLabel})`;
+    $('pause-screen').classList.remove('hidden-screen');
+  } else if (gameState === 'pause') {
+    gameState = 'play';
+    const pauseDuration = Math.max(0, ac.currentTime - pausedAtCtxTime);
+    totalPausedOffset += pauseDuration;
+    try { ac.resume(); } catch (e) {}
+    $('pause-screen').classList.add('hidden-screen');
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+$('btn-resume').onclick = togglePause;
+$('btn-restart').onclick = () => {
+  $('pause-screen').classList.add('hidden-screen');
+  try { ac.resume(); } catch (e) {}
+  startGame(currentSong, currentDiffKey);
+};
+$('btn-quit').onclick = () => {
+  gameState = 'menu';
+  try { audioSourceNode.stop(); } catch (e) {}
+  try { ac.resume(); } catch (e) {}
+  $('pause-screen').classList.add('hidden-screen');
+  $('menu-screen').classList.remove('hidden-screen');
+};
+
+function getCanvasCoords(clientX, clientY) {
+  const rect = cv.getBoundingClientRect();
+  const rw = rect.width > 0 ? rect.width : W;
+  const rh = rect.height > 0 ? rect.height : H;
+  const mx = ((clientX - rect.left) / rw) * W;
+  const my = ((clientY - rect.top) / rh) * H;
+  return {
+    x: Math.max(0, Math.min(W, isNaN(mx) ? W / 2 : mx)),
+    y: Math.max(0, Math.min(H, isNaN(my) ? H / 2 : my))
+  };
+}
+
+// Mobile Touch: Direct tap on notes
+cv.addEventListener('touchstart', (e) => {
+  ensureAudioContext();
+  if (deviceMode !== 'mobile') return;
+  e.preventDefault();
+
+  const nowMs = performance.now();
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    const pt = getCanvasCoords(t.clientX, t.clientY);
+    
+    touchRipples.push({ x: pt.x, y: pt.y, time: nowMs });
+    if (!mods.auto && (gameState === 'play')) {
+      attemptDirectHit(pt.x, pt.y);
+    }
+  }
+}, { passive: false });
+
+// PC Mouse: Pointer Move and Click
+cv.addEventListener('pointermove', (e) => {
+  if (deviceMode === 'mobile') return;
+  const pt = getCanvasCoords(e.clientX, e.clientY);
+  mouse.x = pt.x;
+  mouse.y = pt.y;
+});
+
+cv.addEventListener('pointerdown', (e) => {
+  ensureAudioContext();
+  if (deviceMode === 'mobile') return;
+  const pt = getCanvasCoords(e.clientX, e.clientY);
+  mouse.x = pt.x;
+  mouse.y = pt.y;
+  mouse.down = true;
+
+  keyOverlayState.mouse.active = true;
+  keyOverlayState.mouse.count++;
+
+  if (!mods.auto && gameState === 'play') attemptHit();
+});
+
+cv.addEventListener('pointerup', () => {
+  mouse.down = false;
+  keyOverlayState.mouse.active = false;
+});
+cv.addEventListener('pointerleave', () => { mouse.down = false; keyOverlayState.mouse.active = false; });
+cv.addEventListener('pointercancel', () => { mouse.down = false; keyOverlayState.mouse.active = false; });
+
+// Interactive Key Listening and Hit Processing
+let listeningForBindKey = null;
+
+window.addEventListener('keydown', (e) => {
+  ensureAudioContext();
+
+  if (listeningForBindKey) {
+    e.preventDefault();
+    const newKey = e.key.toLowerCase();
+    keyBindings[listeningForBindKey] = newKey;
+    try {
+      localStorage.setItem('miku_custom_keybinds', JSON.stringify(keyBindings));
+    } catch (err) {}
+    updateKeybindButtonsUI();
+    showToast(`Клавиша ${listeningForBindKey.toUpperCase()} назначена на [${newKey.toUpperCase()}]`);
+    listeningForBindKey = null;
+    return;
+  }
+
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+
+  const isK1 = (k === keyBindings.k1 || k === 'z' || k === 'я');
+  const isK2 = (k === keyBindings.k2 || k === 'x' || k === 'ч');
+
+  if (isK1) {
+    keyOverlayState.k1.active = true;
+    keyOverlayState.k1.count++;
+  }
+  if (isK2) {
+    keyOverlayState.k2.active = true;
+    keyOverlayState.k2.count++;
+  }
+
+  if (isK1 || isK2) {
+    if (!mods.auto && gameState === 'play') {
+      attemptHit();
+    }
+  }
+
+  if (e.key === 'Escape') {
+    if (gameState === 'play' || gameState === 'pause') {
+      togglePause();
+    }
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === keyBindings.k1 || k === 'z' || k === 'я') keyOverlayState.k1.active = false;
+  if (k === keyBindings.k2 || k === 'x' || k === 'ч') keyOverlayState.k2.active = false;
+});
+
+function registerHit(grade, nt, dt = 0) {
+  if (!nt || nt.hit) return;
+  nt.hit = true;
+
+  // Фиксируем отклонение в Hit Error Bar для всех попаданий и ранних/поздних промахов
+  if (dt !== undefined) {
+    timingErrors.push({ dt: dt * 1000, val: grade, time: performance.now() });
+    if (timingErrors.length > 50) timingErrors.shift();
+  }
+
+  hitCounts[grade]++;
+
+  if (grade > 0) {
+    combo++;
+    beatPulse = 1;
+    if (combo > maxCombo) maxCombo = combo;
+    score += Math.round(grade * (1 + Math.floor(combo / 10) * 0.1));
+    hp = Math.min(100, hp + (grade === 300 ? 5 : grade === 100 ? 2 : 1));
+
+    const soundFreq = grade === 300 ? 880 : grade === 100 ? 580 : 380;
+    playHitsound(soundFreq, 0.06);
+
+    const hitColor = grade === 300 ? '#86e3ce' : grade === 100 ? '#ffd166' : '#ff2a8d';
+    spawnHitParticles(nt.x, nt.y, hitColor);
+  } else {
+    combo = 0;
+    hp = Math.max(0, hp - (mods.suddenDeath ? 100 : 12));
+    playHitsound(160, 0.12);
+    if (mods.suddenDeath) {
+      finishGame(true);
+      return;
+    }
+  }
+
+  // Детализированный текст вердикта: 300 / 100 / 50 или РАНО / ПОЗДНО / MISS
+  let feedbackText = 'MISS';
+  let feedbackColor = '#ff3366';
+
+  if (grade === 300) {
+    feedbackText = '300';
+    feedbackColor = '#86e3ce';
+  } else if (grade === 100) {
+    feedbackText = '100';
+    feedbackColor = '#ffd166';
+  } else if (grade === 50) {
+    feedbackText = '50';
+    feedbackColor = '#ff758c';
+  } else {
+    if (dt > 0.12) feedbackText = 'РАНО';
+    else if (dt < -0.12) feedbackText = 'ПОЗДНО';
+    else feedbackText = 'MISS';
+  }
+
+  feedbackEffects.push({
+    x: nt.x,
+    y: nt.y,
+    text: feedbackText,
+    color: feedbackColor,
+    scale: grade === 300 ? 1.25 : (grade === 0 ? 1.15 : 1.0),
+    startTime: performance.now()
+  });
+}
+
+function attemptHit() {
+  if (gameState !== 'play') return;
+  const t = getSongTime();
+  const hitRadius = baseRadius * (mods.hardRock ? 1.25 : 1.4);
+
+  // Окна точности (в секундах)
+  const win300 = mods.hardRock ? 0.040 : 0.055;
+  const win100 = mods.hardRock ? 0.080 : 0.105;
+  const win50  = mods.hardRock ? 0.125 : 0.155;
+  // Максимальное окно раннего клика по приближающейся ноте
+  const maxEarlyWindow = mods.hardRock ? 0.28 : Math.min(0.38, currentAR);
+
+  let bestCandidate = null;
+  let bestDist = 9999;
+
+  for (let i = noteIndex; i < Math.min(notes.length, noteIndex + 6); i++) {
+    const nt = notes[i];
+    if (nt.hit) continue;
+    const dt = nt.t - t;
+
+    // Проверяем ноту, если она уже на экране и в пределах досягаемости клика
+    if (dt >= -0.18 && dt <= maxEarlyWindow) {
+      const d = Math.hypot(mouse.x - nt.x, mouse.y - nt.y);
+      if (d <= hitRadius && d < bestDist) {
+        bestDist = d;
+        bestCandidate = { note: nt, dt: dt, index: i };
+      }
+    }
+  }
+
+  if (bestCandidate) {
+    const absDt = Math.abs(bestCandidate.dt);
+
+    let grade = 0;
+    if (absDt <= win300) {
+      grade = 300;
+    } else if (absDt <= win100) {
+      grade = 100;
+    } else if (absDt <= win50) {
+      grade = 50;
+    } else {
+      // Клик вне допустимого окна (слишком рано или слишком поздно) — строгий промах (0) как в osu!
+      grade = 0;
+    }
+
+    registerHit(grade, bestCandidate.note, bestCandidate.dt);
+  }
+}
+
+// Mobile Direct Hit: tests touch with generous mobile hitbox and strict timing
+function attemptDirectHit(tx, ty) {
+  if (gameState !== 'play') return;
+  const t = getSongTime();
+  const touchHitbox = baseRadius * 1.5;
+
+  const win300 = mods.hardRock ? 0.045 : 0.065;
+  const win100 = mods.hardRock ? 0.090 : 0.115;
+  const win50  = mods.hardRock ? 0.135 : 0.165;
+  const maxEarlyWindow = mods.hardRock ? 0.30 : Math.min(0.40, currentAR);
+
+  let bestCandidate = null;
+  let bestDist = 9999;
+
+  for (let i = noteIndex; i < Math.min(notes.length, noteIndex + 6); i++) {
+    const nt = notes[i];
+    if (nt.hit) continue;
+    const dt = nt.t - t;
+
+    if (dt >= -0.18 && dt <= maxEarlyWindow) {
+      const d = Math.hypot(tx - nt.x, ty - nt.y);
+      if (d <= touchHitbox && d < bestDist) {
+        bestDist = d;
+        bestCandidate = { note: nt, dt: dt, index: i };
+      }
+    }
+  }
+
+  if (bestCandidate) {
+    const absDt = Math.abs(bestCandidate.dt);
+
+    let grade = 0;
+    if (absDt <= win300) {
+      grade = 300;
+    } else if (absDt <= win100) {
+      grade = 100;
+    } else if (absDt <= win50) {
+      grade = 50;
+    } else {
+      grade = 0;
+    }
+
+    registerHit(grade, bestCandidate.note, bestCandidate.dt);
+  }
+}
+
+function spawnHitParticles(x, y, color) {
+  for (let i = 0; i < 14; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 2 + Math.random() * 5;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd,
+      life: 1.0,
+      decay: 0.03 + Math.random() * 0.03,
+      color: color,
+      size: 3 + Math.random() * 4
+    });
+  }
+}
+
+function calcAccuracy() {
+  const total = hitCounts[300] + hitCounts[100] + hitCounts[50] + hitCounts[0];
+  if (!total) return 100;
+  return (300 * hitCounts[300] + 100 * hitCounts[100] + 50 * hitCounts[50]) / (300 * total) * 100;
+}
+
+function finishGame(failed) {
+  gameState = 'end';
+  try { audioSourceNode.stop(); } catch (e) {}
+
+  const finalAcc = calcAccuracy();
+  let rank = 'D';
+  let badgeColor = 'bg-rose-600 text-white';
+
+  if (failed) {
+    rank = 'F';
+    badgeColor = 'bg-red-800 text-white';
+    $('result-title').textContent = 'ПРОВАЛ (HP = 0)';
+  } else {
+    if (finalAcc >= 98 && hitCounts[0] === 0) { rank = 'SS'; badgeColor = 'bg-gradient-to-tr from-cyan-400 to-pink-500 text-white animate-pulse'; }
+    else if (finalAcc >= 93) { rank = 'S'; badgeColor = 'bg-gradient-to-tr from-yellow-400 to-amber-500 text-black'; }
+    else if (finalAcc >= 85) { rank = 'A'; badgeColor = 'bg-emerald-500 text-white'; }
+    else if (finalAcc >= 75) { rank = 'B'; badgeColor = 'bg-blue-500 text-white'; }
+    else if (finalAcc >= 65) { rank = 'C'; badgeColor = 'bg-purple-500 text-white'; }
+    $('result-title').textContent = 'ПЕСНЯ ПРОЙДЕНА!';
+
+    if (!mods.auto) {
+      const nowTime = new Date();
+      const timeStr = nowTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + nowTime.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+      const diffLabel = currentSong.isOsu ? (currentSong.version || 'osu!') : (DIFF_CONFIG[currentDiffKey]?.label || 'Обычная');
+      
+      highScores.unshift({
+        id: Date.now(),
+        songName: currentSong.name,
+        diff: diffLabel,
+        score: score,
+        acc: finalAcc,
+        combo: maxCombo,
+        rank: rank,
+        date: timeStr
+      });
+      if (highScores.length > 50) highScores.pop();
+      persistScores();
+      renderLeaderboard();
+    }
+  }
+
+  const badgeEl = $('result-rank-badge');
+  badgeEl.className = `w-18 h-18 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center font-black text-5xl shadow-lg border-2 border-white/20 mb-1 ${badgeColor}`;
+  badgeEl.textContent = rank;
+
+  const diffName = currentSong.isOsu ? (currentSong.version || 'osu!') : (DIFF_CONFIG[currentDiffKey]?.label || 'Обычная');
+  $('result-song-sub').textContent = `${currentSong.name} · ${diffName}${mods.auto ? ' (Auto)' : ''}`;
+  $('res-score').textContent = score.toLocaleString();
+  $('res-acc').textContent = finalAcc.toFixed(2) + '%';
+  $('res-combo').textContent = maxCombo + 'x';
+  $('res-miss').textContent = hitCounts[0];
+  $('res-c300').textContent = hitCounts[300];
+  $('res-c100').textContent = hitCounts[100];
+  $('res-c50').textContent = hitCounts[50];
+
+  $('result-screen').classList.remove('hidden-screen');
+}
+
+function drawBackground() {
+  const bgGrad = g.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, W * 0.7);
+  bgGrad.addColorStop(0, '#07242c');
+  bgGrad.addColorStop(1, '#020d12');
+  g.fillStyle = bgGrad;
+  g.fillRect(0, 0, W, H);
+
+  // Equalizer Spectrum
+  if (analyser && freqData && freqData.length > 0) {
+    analyser.getByteFrequencyData(freqData);
+    const numBars = 32;
+    const barWidth = W / numBars;
+    for (let b = 0; b < numBars; b++) {
+      const idx = Math.min(freqData.length - 1, Math.floor(b * (freqData.length / numBars)));
+      const rawVal = freqData[idx];
+      const val = Number.isFinite(rawVal) ? rawVal / 255 : 0;
+      const pulseSafe = Number.isFinite(beatPulse) ? beatPulse : 0;
+      const barH = Math.max(0, Math.min(H * 0.45, val * (H * 0.42) + (pulseSafe * 16)));
+      const yTop = H - barH;
+
+      if (Number.isFinite(yTop) && Number.isFinite(barH) && barH > 0.5) {
+        const grad = g.createLinearGradient(0, yTop, 0, H);
+        grad.addColorStop(0, 'rgba(57, 197, 187, 0.4)');
+        grad.addColorStop(1, 'rgba(7, 39, 49, 0.05)');
+        g.fillStyle = grad;
+        g.fillRect(b * barWidth + 2, yTop, Math.max(1, barWidth - 4), barH);
+      }
+    }
+  }
+
+  // Neon Matrix Grid
+  g.save();
+  g.strokeStyle = `rgba(57, 197, 187, ${0.05 + beatPulse * 0.08})`;
+  g.lineWidth = 1;
+  const gridSpacing = 48;
+  for (let x = 0; x < W; x += gridSpacing) {
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+  }
+  for (let y = 0; y < H; y += gridSpacing) {
+    g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+  }
+  g.restore();
+
+  beatPulse *= 0.92;
+}
+
+function drawCountdown(nowMs) {
+  const elapsedSec = (nowMs - countdownStartTime) / 1000;
+  const remaining = 3 - elapsedSec;
+
+  const currentDigit = Math.ceil(remaining);
+  if (currentDigit !== countdownRemaining && currentDigit >= 1) {
+    countdownRemaining = currentDigit;
+    playCountdownBeep(false);
+  }
+
+  const pulseFactor = (remaining % 1);
+  const ringRadius = 70 + (1 - pulseFactor) * 40;
+
+  g.save();
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+
+  g.beginPath();
+  g.arc(W / 2, H / 2, ringRadius, 0, Math.PI * 2);
+  g.lineWidth = 4;
+  g.strokeStyle = `rgba(57, 197, 187, ${pulseFactor})`;
+  g.shadowColor = '#39c5bb';
+  g.shadowBlur = 18;
+  g.stroke();
+
+  g.beginPath();
+  g.arc(W / 2, H / 2, ringRadius * 0.75, 0, Math.PI * 2);
+  g.lineWidth = 2;
+  g.strokeStyle = `rgba(255, 42, 141, ${pulseFactor * 0.8})`;
+  g.stroke();
+
+  g.fillStyle = '#ffffff';
+  g.shadowBlur = 20;
+  g.shadowColor = '#ff2a8d';
+  g.font = 'black 76px system-ui, sans-serif';
+  g.fillText(currentDigit >= 1 ? currentDigit : 'START!', W / 2, H / 2);
+
+  g.font = 'bold 15px system-ui, sans-serif';
+  g.fillStyle = '#86e3ce';
+  g.shadowBlur = 6;
+  g.fillText('СЛУШАЙТЕ БИТ · ГОТОВЬТЕСЬ!', W / 2, H / 2 + 65);
+
+  g.restore();
+
+  if (remaining <= 0) {
+    playCountdownBeep(true);
+    gameState = 'play';
+  }
+}
+
+function gameLoop() {
+  if (gameState !== 'play' && gameState !== 'countdown') return;
+
+  const nowMs = performance.now();
+  drawBackground();
+
+  if (gameState === 'countdown') {
+    drawCountdown(nowMs);
+    drawHUD();
+    if (deviceMode === 'pc') drawCursor();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  const t = getSongTime();
+
+  if ((mods.auto || mods.relax) && notes[noteIndex]) {
+    const target = notes[noteIndex];
+    const dt = target.t - t;
+    mouse.x += (target.x - mouse.x) * 0.42;
+    mouse.y += (target.y - mouse.y) * 0.42;
+
+    if (mods.auto && dt <= 0.015 && !target.hit) {
+      mouse.x = target.x;
+      mouse.y = target.y;
+      registerHit(300, target, 0);
+    }
+  }
+
+  while (notes[noteIndex] && (notes[noteIndex].hit || t > notes[noteIndex].t + 0.14)) {
+    if (!notes[noteIndex].hit) {
+      registerHit(0, notes[noteIndex]);
+    }
+    noteIndex++;
+  }
+
+  drawNotes(t);
+  drawParticles();
+  drawTouchRipples(nowMs);
+  drawFeedbacks();
+  drawHUD();
+  drawKeyOverlay();
+  if (deviceMode === 'pc') drawCursor();
+
+  if (hp <= 0) {
+    finishGame(true);
+    return;
+  }
+
+  if (noteIndex >= notes.length && notes.length > 0) {
+    const lastNote = notes[notes.length - 1];
+    if (t > lastNote.t + 1.2) {
+      finishGame(false);
+      return;
+    }
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function drawNotes(t) {
+  const visible = [];
+  for (let i = noteIndex; i < notes.length && notes[i].t - t < currentAR; i++) {
+    if (!notes[i].hit) visible.push(notes[i]);
+  }
+
+  const R_cur = baseRadius;
+
+  for (let i = visible.length - 1; i >= 0; i--) {
+    const nt = visible[i];
+    const dt = nt.t - t;
+    const alpha = Math.max(0, Math.min(1, (currentAR - dt) / 0.18));
+
+    g.save();
+    g.globalAlpha = alpha;
+
+    g.shadowColor = '#39c5bb';
+    g.shadowBlur = 14;
+
+    const circleGrad = g.createRadialGradient(nt.x - 8, nt.y - 8, 4, nt.x, nt.y, R_cur);
+    circleGrad.addColorStop(0, '#c7fff6');
+    circleGrad.addColorStop(0.7, '#39c5bb');
+    circleGrad.addColorStop(1, '#1b8b83');
+
+    g.beginPath();
+    g.arc(nt.x, nt.y, R_cur, 0, Math.PI * 2);
+    g.fillStyle = circleGrad;
+    g.fill();
+
+    g.shadowBlur = 0;
+    g.lineWidth = 4;
+    g.strokeStyle = '#ffffff';
+    g.stroke();
+
+    g.beginPath();
+    g.arc(nt.x, nt.y, R_cur - 8, 0, Math.PI * 2);
+    g.lineWidth = 2;
+    g.strokeStyle = '#ff2a8d';
+    g.stroke();
+
+    g.fillStyle = '#062831';
+    g.font = `bold ${Math.round(R_cur * 0.6)}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+
+    let displayTxt = nt.num;
+    if (noteDisplayStyle === 'keys') {
+      displayTxt = (nt.num % 2 === 1) ? keyBindings.k1.toUpperCase() : keyBindings.k2.toUpperCase();
+    } else if (noteDisplayStyle === 'dot') {
+      displayTxt = '•';
+    }
+
+    g.fillText(displayTxt, nt.x, nt.y + 1);
+
+    if (dt > 0) {
+      const approachRatio = currentAR > 0 ? (dt / currentAR) : 0;
+      const approachRadius = R_cur + (R_cur * 2.2 * approachRatio);
+      const safeR = Math.max(1, Number.isFinite(approachRadius) ? approachRadius : R_cur);
+
+      g.beginPath();
+      g.arc(nt.x, nt.y, safeR, 0, Math.PI * 2);
+      g.lineWidth = 3.5;
+      g.strokeStyle = '#ff2a8d';
+      g.stroke();
+    }
+
+    g.restore();
+  }
+}
+
+function drawKeyOverlay() {
+  if (deviceMode === 'mobile') return;
+
+  const boxW = 44, boxH = 40, spacing = 8;
+  const startX = W - (boxW * 2 + spacing + 16);
+  const startY = H - boxH - 24;
+
+  const keys = [
+    { name: keyBindings.k1.toUpperCase(), state: keyOverlayState.k1, color: '#39c5bb' },
+    { name: keyBindings.k2.toUpperCase(), state: keyOverlayState.k2, color: '#ff2a8d' }
+  ];
+
+  keys.forEach((k, idx) => {
+    const x = startX + idx * (boxW + spacing);
+    const y = startY;
+    const isDown = k.state.active;
+
+    g.save();
+    g.fillStyle = isDown ? k.color : 'rgba(7, 39, 49, 0.75)';
+    g.strokeStyle = k.color;
+    g.lineWidth = 2;
+
+    if (isDown) {
+      g.shadowColor = k.color;
+      g.shadowBlur = 12;
+    }
+
+    g.beginPath();
+    g.roundRect(x, y, boxW, boxH, 8);
+    g.fill();
+    g.stroke();
+
+    g.shadowBlur = 0;
+    g.fillStyle = isDown ? '#021815' : '#eafcfa';
+    g.font = 'bold 15px monospace';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(k.name, x + boxW / 2, y + 14);
+
+    g.font = '9px monospace';
+    g.fillStyle = isDown ? '#021815' : 'rgba(234, 252, 250, 0.7)';
+    g.fillText(k.state.count, x + boxW / 2, y + 29);
+
+    g.restore();
+  });
+}
+
+function drawParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= p.decay;
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+    g.save();
+    g.globalAlpha = Math.max(0, Math.min(1, p.life));
+    g.fillStyle = p.color;
+    g.beginPath();
+    g.arc(p.x, p.y, Math.max(0.2, p.size * p.life), 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+}
+
+function drawTouchRipples(nowMs) {
+  for (let i = touchRipples.length - 1; i >= 0; i--) {
+    const r = touchRipples[i];
+    const age = nowMs - r.time;
+    if (age > 300) {
+      touchRipples.splice(i, 1);
+      continue;
+    }
+    const progress = age / 300;
+    g.save();
+    g.beginPath();
+    g.arc(r.x, r.y, 20 + progress * 40, 0, Math.PI * 2);
+    g.strokeStyle = `rgba(57, 197, 187, ${1 - progress})`;
+    g.lineWidth = 3 * (1 - progress);
+    g.stroke();
+    g.restore();
+  }
+}
+
+function drawFeedbacks() {
+  const now = performance.now();
+  feedbackEffects = feedbackEffects.filter(f => now - f.startTime < 550);
+
+  for (const f of feedbackEffects) {
+    const progress = (now - f.startTime) / 550;
+    const alpha = 1 - progress;
+    const yOffset = progress * 24;
+
+    g.save();
+    g.globalAlpha = alpha;
+    g.fillStyle = f.color;
+    g.font = `black ${Math.round(22 * f.scale)}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowColor = f.color;
+    g.shadowBlur = 8;
+    g.fillText(f.text, f.x, f.y - baseRadius - 12 - yOffset);
+    g.restore();
+  }
+}
+
+function drawHUD() {
+  g.fillStyle = 'rgba(7, 39, 49, 0.85)';
+  g.fillRect(24, 18, 260, 12);
+  const hpGrad = g.createLinearGradient(24, 0, 284, 0);
+  hpGrad.addColorStop(0, hp > 30 ? '#39c5bb' : '#ff3366');
+  hpGrad.addColorStop(1, hp > 30 ? '#86e3ce' : '#ff758c');
+  g.fillStyle = hpGrad;
+  g.fillRect(24, 18, Math.max(0, hp / 100) * 260, 12);
+
+  g.textAlign = 'right';
+  g.textBaseline = 'top';
+  g.fillStyle = '#ffffff';
+  g.font = 'bold 30px system-ui, monospace';
+  g.fillText(String(score).padStart(7, '0'), W - 24, 14);
+
+  g.font = 'bold 16px system-ui, sans-serif';
+  g.fillStyle = '#86e3ce';
+  g.fillText(calcAccuracy().toFixed(2) + '%', W - 24, 48);
+
+  const activeModKeys = Object.keys(mods).filter(k => mods[k]);
+  if (activeModKeys.length) {
+    g.font = 'bold 12px monospace';
+    g.fillStyle = '#ffd166';
+    g.fillText('[' + activeModKeys.map(k => k.toUpperCase()).join(' ') + ']', W - 24, 72);
+  }
+
+  g.textAlign = 'center';
+  g.fillStyle = 'rgba(234, 252, 250, 0.85)';
+  g.font = 'bold 13px system-ui, sans-serif';
+  const diffLabel = currentSong.isOsu ? (currentSong.version || 'osu!') : (DIFF_CONFIG[currentDiffKey]?.label || 'Обычная');
+  const songName = currentSong ? currentSong.name : '';
+  const songLabel = (songName.length > 28 ? songName.slice(0, 27) + '…' : songName) + ' · ' + diffLabel;
+  g.fillText(songLabel, W / 2, 22);
+
+  if (combo > 0) {
+    g.textAlign = 'left';
+    g.textBaseline = 'bottom';
+    g.fillStyle = '#ffffff';
+    g.font = 'black 44px system-ui, sans-serif';
+    g.fillText(`${combo}x`, 24, H - 24);
+  }
+
+  const barW = 220, barH = 5, barX = (W - barW) / 2, barY = H - 20;
+  g.fillStyle = 'rgba(7, 39, 49, 0.75)';
+  g.fillRect(barX, barY, barW, barH);
+  
+  // Центральная риска идеального попадания
+  g.fillStyle = '#ffffff';
+  g.fillRect(W / 2 - 1, barY - 3, 2, barH + 6);
+
+  // Подписи «РАНО» и «ПОЗДНО»
+  g.font = 'bold 9px system-ui, sans-serif';
+  g.fillStyle = 'rgba(134, 227, 206, 0.6)';
+  g.textAlign = 'left';
+  g.fillText('◄ РАНО', barX, barY - 4);
+  g.textAlign = 'right';
+  g.fillStyle = 'rgba(255, 42, 141, 0.6)';
+  g.fillText('ПОЗДНО ►', barX + barW, barY - 4);
+
+  const nowMs = performance.now();
+  for (const err of timingErrors) {
+    const age = nowMs - err.time;
+    if (age > 3500) continue;
+    const alpha = Math.max(0, 1 - age / 3500);
+    // Инвертируем: dt > 0 (нажато раньше времени) отображается слева («РАНО»), dt < 0 — справа («ПОЗДНО»)
+    const px = (W / 2) - Math.max(-barW / 2, Math.min(barW / 2, (err.dt / 150) * (barW / 2)));
+    
+    g.fillStyle = err.val === 300 
+      ? `rgba(134, 227, 206, ${alpha})` 
+      : err.val === 100 
+      ? `rgba(255, 209, 102, ${alpha})` 
+      : err.val === 50
+      ? `rgba(255, 209, 102, ${alpha})`
+      : `rgba(255, 51, 102, ${alpha})`;
+    g.fillRect(px - 1.5, barY - 2, 3, barH + 4);
+  }
+}
+
+function drawCursor() {
+  mouseTrail.push({ x: mouse.x, y: mouse.y, time: performance.now() });
+  const trailCutoff = performance.now() - 140;
+  mouseTrail = mouseTrail.filter(p => p.time > trailCutoff);
+
+  if (mouseTrail.length > 1) {
+    g.beginPath();
+    g.moveTo(mouseTrail[0].x, mouseTrail[0].y);
+    for (let i = 1; i < mouseTrail.length; i++) {
+      g.lineTo(mouseTrail[i].x, mouseTrail[i].y);
+    }
+    g.strokeStyle = 'rgba(57, 197, 187, 0.45)';
+    g.lineWidth = 6;
+    g.lineCap = 'round';
+    g.stroke();
+  }
+
+  g.save();
+  g.beginPath();
+  g.arc(mouse.x, mouse.y, mouse.down ? 11 : 9, 0, Math.PI * 2);
+  g.fillStyle = '#ffffff';
+  g.fill();
+  g.lineWidth = 2.5;
+  g.strokeStyle = '#ff2a8d';
+  g.stroke();
+  g.restore();
+}
+
+$('btn-start').onclick = () => {
+  if (!songs.length) return;
+  startGame(songs[selectedSongIdx], $('diff-select').value);
+};
+
+function playRandomTrack() {
+  if (!songs.length) return;
+  const randIdx = Math.floor(Math.random() * songs.length);
+  const diffKeys = Object.keys(DIFF_CONFIG);
+  const randDiff = diffKeys[Math.floor(Math.random() * diffKeys.length)];
+  selectedSongIdx = randIdx;
+  $('diff-select').value = randDiff;
+  startGame(songs[randIdx], randDiff);
+}
+
+$('btn-random').onclick = playRandomTrack;
+$('btn-again-rand').onclick = playRandomTrack;
+$('btn-again-same').onclick = () => startGame(currentSong, currentDiffKey);
+$('btn-to-menu').onclick = () => {
+  $('result-screen').classList.add('hidden-screen');
+  $('menu-screen').classList.remove('hidden-screen');
+  renderSongList();
+  gameState = 'menu';
+};
+
+// Leaderboard Buttons
+$('btn-leaderboard').onclick = () => {
+  renderLeaderboard();
+  $('leaderboard-screen').classList.remove('hidden-screen');
+};
+$('btn-result-leaderboard').onclick = () => {
+  renderLeaderboard();
+  $('leaderboard-screen').classList.remove('hidden-screen');
+};
+$('btn-close-leaderboard').onclick = () => {
+  $('leaderboard-screen').classList.add('hidden-screen');
+};
+$('btn-clear-records').onclick = () => {
+  highScores = [];
+  persistScores();
+  renderLeaderboard();
+  showToast("История рекордов очищена!");
+};
+
+// Mods toggling
+const setupModButton = (btnId, modKey) => {
+  const btn = $(btnId);
+  if (!btn) return;
+  btn.onclick = () => {
+    mods[modKey] = !mods[modKey];
+    btn.classList.toggle('active', mods[modKey]);
+    playHitsound(mods[modKey] ? 800 : 400, 0.04);
+  };
+};
+setupModButton('mod-auto', 'auto');
+setupModButton('mod-relax', 'relax');
+setupModButton('mod-sd', 'suddenDeath');
+setupModButton('mod-dt', 'doubleTime');
+setupModButton('mod-hr', 'hardRock');
+setupModButton('mod-mr', 'mirror');
+
+// Keybinding buttons in Settings
+function updateKeybindButtonsUI() {
+  const b1 = $('btn-bind-k1');
+  const b2 = $('btn-bind-k2');
+  if (b1) {
+    b1.textContent = keyBindings.k1.toUpperCase();
+    b1.classList.remove('listening');
+  }
+  if (b2) {
+    b2.textContent = keyBindings.k2.toUpperCase();
+    b2.classList.remove('listening');
+  }
+}
+
+$('btn-bind-k1').onclick = () => {
+  listeningForBindKey = 'k1';
+  $('btn-bind-k1').textContent = '...';
+  $('btn-bind-k1').classList.add('listening');
+};
+$('btn-bind-k2').onclick = () => {
+  listeningForBindKey = 'k2';
+  $('btn-bind-k2').textContent = '...';
+  $('btn-bind-k2').classList.add('listening');
+};
+
+const noteStyleEl = $('settings-note-style');
+if (noteStyleEl) {
+  noteStyleEl.value = noteDisplayStyle;
+  noteStyleEl.onchange = (e) => {
+    noteDisplayStyle = e.target.value;
+    try { localStorage.setItem('miku_note_style', noteDisplayStyle); } catch (err) {}
+  };
+}
+
+// Settings Handlers
+$('btn-settings-toggle').onclick = () => {
+  updateKeybindButtonsUI();
+  $('settings-screen').classList.remove('hidden-screen');
+};
+$('btn-close-settings').onclick = () => $('settings-screen').classList.add('hidden-screen');
+
+$('music-vol').oninput = (e) => {
+  musicVolume = parseFloat(e.target.value);
+  $('music-vol-val').textContent = Math.round(musicVolume * 100) + '%';
+  if (masterGain) masterGain.gain.value = musicVolume;
+};
+
+$('hitsound-vol').oninput = (e) => {
+  hitsoundVolume = parseFloat(e.target.value);
+  $('hitsound-vol-val').textContent = Math.round(hitsoundVolume * 100) + '%';
+  if (hitsoundGain) hitsoundGain.gain.value = hitsoundVolume;
+  playHitsound(880, 0.05);
+};
+
+$('audio-offset').oninput = (e) => {
+  audioOffsetMs = parseInt(e.target.value, 10);
+  $('offset-val').textContent = (audioOffsetMs > 0 ? '+' : '') + audioOffsetMs + ' мс';
+};
+
+$('settings-platform-select').onchange = (e) => {
+  setDeviceMode(e.target.value);
+};
+
+// Platform Selector Buttons
+$('pick-pc').onclick = () => {
+  setDeviceMode('pc');
+  $('platform-modal').classList.add('hidden-screen');
+  ensureAudioContext();
+  playHitsound(660, 0.08);
+};
+
+$('pick-mobile').onclick = () => {
+  setDeviceMode('mobile');
+  $('platform-modal').classList.add('hidden-screen');
+  ensureAudioContext();
+  playHitsound(880, 0.08);
+};
+
+$('toggle-mode-pc').onclick = () => {
+  setDeviceMode('pc');
+  playHitsound(660, 0.05);
+};
+
+$('toggle-mode-mobile').onclick = () => {
+  setDeviceMode('mobile');
+  playHitsound(880, 0.05);
+};
+
+window.onload = () => {
+  resizeCanvas();
+  
+  const savedMode = localStorage.getItem('miku_device_mode');
+  if (savedMode === 'mobile' || savedMode === 'pc') {
+    setDeviceMode(savedMode);
+    $('platform-modal').classList.add('hidden-screen');
+  } else {
+    const isMobileDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth < 768;
+    setDeviceMode(isMobileDevice ? 'mobile' : 'pc');
+    $('platform-modal').classList.remove('hidden-screen');
+  }
+
+  loadDefaultSongs();
+};
+</script>
+</body>
+</html>
